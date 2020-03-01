@@ -208,7 +208,7 @@ def command_answers(m):
 def command_score(m):  
     global score
     bot.send_message(m.chat.id, "Respuestas *correctas*: "+str(score[0])+".\nRespuestas *incorrectas*: "+str(score[1])+".", parse_mode= 'Markdown')
-    bot.send_message(chatId, "Para empezar hacer el test puedes escribir el comando /quiz.")
+    bot.send_message(m.chat.id, "Para empezar hacer el test puedes escribir el comando /quiz.")
 
 # handle the "/score" command 
 @bot.message_handler(commands=['stop']) 
