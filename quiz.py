@@ -8,7 +8,7 @@ import telebot
 from telebot import types 
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-token = '' 
+token = ''
 knownUsers = []  # todo: save these in a file, 
 userStep = {}  # so they won't reset every time the bot restarts 
 
@@ -144,9 +144,7 @@ def command_help(m):
 @bot.message_handler(commands=['quiz']) 
 def command_quiz(m):
     chatId  = m.chat.id 
-    msg     = m.text 
-    global contador
-    contador += 1
+    msg     = m.text
     reply = '' 
     params = msg.split(' ')[1:] 
     bloque = '' 
@@ -190,7 +188,8 @@ def command_quiz(m):
             opcion_b = fila.split(';')[4]
             opcion_c = fila.split(';')[5]
             opcion_d = fila.split(';')[6]       
-            resp_correcta = fila.split(';')[7]    
+            resp_correcta = fila.split(';')[7]
+
         texto = "* %s)* %s \n %s \n %s \n %s \n %s" % (bloqueMio.upper(), enunciado, opcion_a, opcion_b, opcion_c, opcion_d)
         set_enunciado(enunciado)
         set_correct_answer(resp_correcta)
@@ -201,14 +200,25 @@ def command_quiz(m):
 
 @bot.message_handler(commands=['answers'])
 def command_answers(m):
-    bot.send_message(m.chat.id, "Tu respuesta ha sido la *"+get_user_answer()+"*.\n *La respuesta correcta es: "+get_correct_answer() +"*", parse_mode= 'Markdown')
+    global answer_user
+    resp = get_user_answer()
+    set_user_answer(None)
+    if resp != None and resp != '':
+        bot.send_message(m.chat.id, "Tu respuesta ha sido la *"+resp+"*.\n *La respuesta correcta es: "+get_correct_answer() +"*", parse_mode= 'Markdown')
+    else:
+        bot.send_message(m.chat.id, "No has respondido a la pregunta.\nPara empezar hacer el test puedes escribir el comando /quiz y después hacer clic en alguna de las opciones correspondientes.")
 
 # handle the "/score" command 
 @bot.message_handler(commands=['score']) 
 def command_score(m):  
     global score
-    bot.send_message(m.chat.id, "Respuestas *correctas*: "+str(score[0])+".\nRespuestas *incorrectas*: "+str(score[1])+".", parse_mode= 'Markdown')
-    bot.send_message(m.chat.id, "Para empezar hacer el test puedes escribir el comando /quiz.")
+    global answer_user
+    answer_user = ''
+    if score:
+        bot.send_message(m.chat.id, "Respuestas *correctas*: "+str(score[0])+".\nRespuestas *incorrectas*: "+str(score[1])+".", parse_mode= 'Markdown')
+        bot.send_message(m.chat.id, "Para parar el test puedes escribir el comando /stop.")
+    else:
+        bot.send_message(m.chat.id, "No hay puntuación, ya que no has respondido al test.\nPara empezar hacer el test puedes escribir el comando /quiz y después hacer clic en alguna de las opciones correspondientes.")
 
 # handle the "/score" command 
 @bot.message_handler(commands=['stop']) 
@@ -223,6 +233,8 @@ def command_stop(m):
     correctAnswers = []
     wrongAnswers = []
     score = []
+    set_user_answer(None)
+    bot.send_message(m.chat.id, "Para empezar hacer el test puedes escribir el comando /quiz.")
 
 def gen_markup():
     markup = InlineKeyboardMarkup()
@@ -235,16 +247,25 @@ def gen_markup():
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
-    set_user_answer(call.data)
-    get_puntuacion()
-    if call.data == "a":
-        bot.answer_callback_query(call.id, "a")
-    elif call.data == "b":
-        bot.answer_callback_query(call.id, "b")
-    elif call.data == "c":
-        bot.answer_callback_query(call.id, "c")
-    elif call.data == "d":
-        bot.answer_callback_query(call.id, "d")
+    global contador
+    global answer_user
+    resp = call.data
+    if resp != None:
+        contador += 1
+        set_user_answer(call.data)
+        get_puntuacion()
+        if call.data == "a":
+            bot.answer_callback_query(call.id, "a")
+        elif call.data == "b":
+            bot.answer_callback_query(call.id, "b")
+        elif call.data == "c":
+            bot.answer_callback_query(call.id, "c")
+        elif call.data == "d":
+            bot.answer_callback_query(call.id, "d")
+    else:
+        answer_user = ''
+        bot.answer_callback_query(call.id, None)
+
 
 
 # default handler for every other text 
