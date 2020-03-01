@@ -7,11 +7,8 @@ import threading
 import telebot 
 from telebot import types 
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-from Questions import Questions
 
 token = '' 
-bot = ''
-
 knownUsers = []  # todo: save these in a file, 
 userStep = {}  # so they won't reset every time the bot restarts 
 
@@ -23,11 +20,6 @@ commands = {  # command description used in the "help" command
     'answers'     : 'Se obtiene tu respuesta y la respuesta correcta.',
     'stop'        : 'Se para el test y te da un resumen de tu puntuación.'
 }
-
-imageSelect = types.ReplyKeyboardMarkup(one_time_keyboard=True)  # create the image selection keyboard 
-imageSelect.add('Mickey', 'Minnie') 
-
-hideBoard = types.ReplyKeyboardRemove()  # if sent as reply_markup, will hide the keyboard 
 
 pregunta_enunciado = ''
 answer_user = ''
@@ -198,19 +190,14 @@ def command_quiz(m):
             opcion_b = fila.split(';')[4]
             opcion_c = fila.split(';')[5]
             opcion_d = fila.split(';')[6]       
-            resp_correcta = fila.split(';')[7]
-        questions2 = [
-            Questions(bloqueMio, enunciado, opcion_a, opcion_b, opcion_c, opcion_d, resp_correcta)
-        ]
-        for question in questions2:
-            #texto = "*"+question.bloque.upper() +")* "+ question.enunciado + "\n"+question.option_a+"\n"+question.option_b+"\n"+question.option_c+"\n"+question.option_d
-            texto = "* %s)* %s \n %s \n %s \n %s \n %s" % (bloqueMio.upper(), enunciado, opcion_a, opcion_b, opcion_c, opcion_d)
-            set_enunciado(question.enunciado)
-            set_correct_answer(question.correct_answer)
-            bot.send_message(chatId, texto, parse_mode= 'Markdown', reply_markup=gen_markup())
-            bot.send_message(chatId, "Para saber la respuesta correcta puedes escribir el comando /answers.") 
-            bot.send_message(chatId, "Para saber tu puntuación puedes escribir el comando /score.") 
-            bot.send_message(chatId, "Para que el bot te haga otra pregunta puedes escribir el comando /quiz.") 
+            resp_correcta = fila.split(';')[7]    
+        texto = "* %s)* %s \n %s \n %s \n %s \n %s" % (bloqueMio.upper(), enunciado, opcion_a, opcion_b, opcion_c, opcion_d)
+        set_enunciado(enunciado)
+        set_correct_answer(resp_correcta)
+        bot.send_message(chatId, texto, parse_mode= 'Markdown', reply_markup=gen_markup())
+        bot.send_message(chatId, "Para saber la respuesta correcta puedes escribir el comando /answers.") 
+        bot.send_message(chatId, "Para saber tu puntuación puedes escribir el comando /score.") 
+        bot.send_message(chatId, "Para que el bot te haga otra pregunta puedes escribir el comando /quiz.") 
 
 @bot.message_handler(commands=['answers'])
 def command_answers(m):
@@ -221,6 +208,7 @@ def command_answers(m):
 def command_score(m):  
     global score
     bot.send_message(m.chat.id, "Respuestas *correctas*: "+str(score[0])+".\nRespuestas *incorrectas*: "+str(score[1])+".", parse_mode= 'Markdown')
+    bot.send_message(chatId, "Para empezar hacer el test puedes escribir el comando /quiz.")
 
 # handle the "/score" command 
 @bot.message_handler(commands=['stop']) 
