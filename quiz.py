@@ -198,6 +198,67 @@ def command_quiz(m):
         bot.send_message(chatId, "Para saber tu puntuación puedes escribir el comando /score.") 
         bot.send_message(chatId, "Para que el bot te haga otra pregunta puedes escribir el comando /quiz.") 
 
+# filter on a specific message
+@bot.message_handler(func=lambda message: message.text in ("b1", "b2", "b3", "b4") )
+def command_quiz_bloque(m):
+    chatId = m.chat.id  
+    msg = m.text
+    reply = ''  
+    params = msg.split(' ')[1:]  
+    bloque = ''  
+    filas = []
+    autor = ''
+    enunciado = ''
+    opcion_a = ''
+    opcion_b = ''
+    opcion_c = ''
+    opcion_d = ''
+    resp_correcta = ''
+    nombre_bloque = ''
+    if msg:  
+        if msg.lower() == 'b1':  
+            bloque = 'b1'
+            nombre_bloque = 'bloque 1'
+        elif msg.lower() == 'b2':  
+            bloque = 'b2'
+            nombre_bloque = 'bloque 2'
+        elif msg.lower() == 'b3':  
+            bloque = 'b3'
+            nombre_bloque = 'bloque 3'
+        elif msg.lower() == 'b4':  
+            bloque = 'b4'
+            nombre_bloque = 'bloque 4'
+
+    with open('preguntas.txt', 'r') as f:  
+        preguntas = f.read().strip().splitlines()[1:]
+        if bloque:
+            preguntas2 = []  
+            for pregunta in preguntas:  
+                if pregunta.split(';')[0].lower() == bloque:  
+                    preguntas2.append(pregunta)
+                    preguntas = preguntas2
+                    random.shuffle(preguntas)
+            i=0
+            for question in preguntas:
+                filas.append(preguntas[i].strip(';'))
+                i += 1
+            for fila in filas:
+                autor = fila.split(';')[1]
+                enunciado = fila.split(';')[2]
+                opcion_a = fila.split(';')[3]
+                opcion_b = fila.split(';')[4]
+                opcion_c = fila.split(';')[5]
+                opcion_d = fila.split(';')[6]  
+                resp_correcta = fila.split(';')[7]
+ 
+            texto = "* %s)* %s \n %s \n %s \n %s \n %s" % (bloque.upper(), enunciado, opcion_a, opcion_b, opcion_c, opcion_d)
+            set_enunciado(enunciado)
+            set_correct_answer(resp_correcta)
+            bot.send_message(chatId, texto, parse_mode= 'Markdown', reply_markup=gen_markup())
+            bot.send_message(chatId, "Para saber la respuesta correcta puedes escribir el comando /answers.")  
+            bot.send_message(chatId, "Para saber tu puntuación puedes escribir el comando /score.")  
+            bot.send_message(chatId, "Para que el bot te haga otra pregunta del *"+nombre_bloque+"* puedes escribir el *"+bloque+"*.", parse_mode= 'Markdown') 
+
 @bot.message_handler(commands=['answers'])
 def command_answers(m):
     global answer_user
