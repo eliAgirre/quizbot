@@ -228,13 +228,16 @@ def command_stop(m):
     global score
     global contador
     score = get_score()
-    bot.send_message(m.chat.id, "De las *"+str(contador)+"* preguntas.\nRespuestas *correctas* : "+str(score[0])+".\nRespuestas *incorrectas*: "+str(score[1])+".", parse_mode= 'Markdown')
-    contador = 0
-    correctAnswers = []
-    wrongAnswers = []
-    score = []
-    set_user_answer(None)
-    bot.send_message(m.chat.id, "Para empezar hacer el test puedes escribir el comando /quiz.")
+    if score:
+        bot.send_message(m.chat.id, "De las *"+str(contador)+"* preguntas.\nRespuestas *correctas* : "+str(score[0])+".\nRespuestas *incorrectas*: "+str(score[1])+".", parse_mode= 'Markdown')
+        contador = 0
+        correctAnswers = []
+        wrongAnswers = []
+        score = []
+        set_user_answer(None)
+        bot.send_message(m.chat.id, "Para empezar hacer el test puedes escribir el comando /quiz.")
+    else:
+        bot.send_message(m.chat.id, "No hay puntuación, ya que no has respondido al test.\nPara empezar hacer el test puedes escribir el comando /quiz y después hacer clic en alguna de las opciones correspondientes.")
 
 def gen_markup():
     markup = InlineKeyboardMarkup()
