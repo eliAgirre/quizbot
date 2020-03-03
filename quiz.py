@@ -3,10 +3,16 @@ import sys
 import random 
 import time 
 import threading
+import re
+import logging as log
 
 import telebot 
 from telebot import types 
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+# constantes
+TOKEN_FILENAME = 'token.txt'
+QUEST_FILENAME = 'preguntas.txt'
 
 token = ''
 knownUsers = []  # todo: save these in a file, 
@@ -15,10 +21,15 @@ userStep = {}  # so they won't reset every time the bot restarts
 commands = {  # command description used in the "help" command 
     'start'       : 'Bienvenido al chatbot', 
     'help'        : 'Esta instrucción te informa sobre los comandos de este bot',
-    'quiz'        : 'Empieza el test' ,
+    'quiz'        : 'Empieza el test',
+    'b1'          : 'Realizar test del bloque 1',
+    'b2'          : 'Realizar test del bloque 2',
+    'b3'          : 'Realizar test del bloque 3',
+    'b4'          : 'Realizar test del bloque 4',
     'score'       : 'Se obtiene la puntuación',
     'answers'     : 'Se obtiene tu respuesta y la respuesta correcta.',
-    'stop'        : 'Se para el test y te da un resumen de tu puntuación.'
+    'stop'        : 'Se para el test y te da un resumen de tu puntuación.',
+    'wiki'        : 'Busca información en la wikipedia'
 }
 
 pregunta_enunciado = ''
@@ -29,11 +40,14 @@ wrongAnswers = []
 contador = 0
 cont = 0
 score = []
+bloque_elegido = ''
 
 #CONFIG
 chatswl = [
     '000000', 
 ]
+
+log.basicConfig(level=log.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
 # error handling if user isn't known yet 
 # (obsolete once known users are saved to file, because all users 
@@ -74,6 +88,9 @@ def get_enunciado():
 def get_score():
     return score
 
+def get_bloque_elegido():
+    return bloque_elegido
+
 def get_puntuacion():
     global correctAnswers
     global wrongAnswers
@@ -92,9 +109,22 @@ def get_puntuacion():
         score.insert(1, len(wrongAnswers))
     return score
 
+def get_token():
+    global token
+    if os.path.exists(TOKEN_FILENAME):
+        with open(TOKEN_FILENAME, 'r') as f:
+            token = f.read().strip()
+            return token
+    else:
+        print('El fichero '+TOKEN_FILENAME+' no encontrado.')
+        sys.exit()
+
 def echo(messages):
     t = threading.Thread(target=listener, args=(messages))
     t.start()
+
+def log_command(m):
+    log.info('El comando {} ha recibido el dato del chat: {}'.format(m.text, str(m.chat)))
 
 # only used for console output now 
 def listener(messages): 
@@ -106,14 +136,7 @@ def listener(messages):
             # print the sent message to the console 
             print(str(m.chat.first_name) + " [" + str(m.chat.id) + "]: " + m.text) 
 
-filename = 'token.txt'
-if os.path.exists(filename):
-    with open(filename, 'r') as f:
-            token = f.read().strip()
-else:
-    print(filename+' not found.')
-    sys.exit()
-bot = telebot.TeleBot(token) 
+bot = telebot.TeleBot(get_token()) 
 bot.set_update_listener(listener)  # register listener 
 
 # handle the "/start" command 
@@ -132,7 +155,8 @@ def command_start(m):
 
 # help page 
 @bot.message_handler(commands=['help']) 
-def command_help(m): 
+def command_help(m):
+    log_command(m) 
     cid = m.chat.id 
     help_text = "Los siguientes comando están disponibles para este bot: \n" 
     for key in commands:  # generate help text out of the commands dictionary defined at the top 
@@ -143,6 +167,7 @@ def command_help(m):
 # handle the "/quiz" command 
 @bot.message_handler(commands=['quiz']) 
 def command_quiz(m):
+    log_command(m)
     chatId  = m.chat.id 
     msg     = m.text
     reply = '' 
@@ -167,7 +192,7 @@ def command_quiz(m):
         elif params[0].lower() == 'b4': 
             bloque = 'b4' 
     
-    with open('preguntas.txt', 'r') as f: 
+    with open(QUEST_FILENAME, 'r') as f: 
         preguntas = f.read().strip().splitlines()[1:]
         if bloque: 
             preguntas2 = [] 
@@ -190,22 +215,29 @@ def command_quiz(m):
             opcion_d = fila.split(';')[6]       
             resp_correcta = fila.split(';')[7]
 
-        texto = "* %s)* %s \n %s \n %s \n %s \n %s" % (bloqueMio.upper(), enunciado, opcion_a, opcion_b, opcion_c, opcion_d)
+        texto = "* %s)* %s \n %s \n %s \n %s \n %s \n\n De *%s*" % (bloqueMio.upper(), enunciado, opcion_a, opcion_b, opcion_c, opcion_d, autor)
         set_enunciado(enunciado)
         set_correct_answer(resp_correcta)
         bot.send_message(chatId, texto, parse_mode= 'Markdown', reply_markup=gen_markup())
         bot.send_message(chatId, "Para saber la respuesta correcta puedes escribir el comando /answers.") 
         bot.send_message(chatId, "Para saber tu puntuación puedes escribir el comando /score.") 
-        bot.send_message(chatId, "Para que el bot te haga otra pregunta puedes escribir el comando /quiz.") 
+        bot.send_message(chatId, "Para que el bot te haga otra pregunta puedes escribir el comando /quiz.")
 
-# filter on a specific message
-@bot.message_handler(func=lambda message: message.text in ("b1", "b2", "b3", "b4") )
+# handle the "/b1" or "/b2" or "/b3" or  "/b4" or  command
+@bot.message_handler(commands=['b1', 'b2', 'b3', 'b4'])
+def command_bloque(m):
+    # Parse command correctly (avoid content after @)
+    global bloque_elegido
+    regex = re.compile('\/\w*')
+    command = regex.search(m.text).group(0)
+    bloque_elegido = command.replace("/", "")
+    log_command(m)
+    command_quiz_bloque(m)
+
 def command_quiz_bloque(m):
-    chatId = m.chat.id  
-    msg = m.text
-    reply = ''  
-    params = msg.split(' ')[1:]  
-    bloque = ''  
+    log_command(m)
+    global bloque_elegido
+    chatId  = m.chat.id 
     filas = []
     autor = ''
     enunciado = ''
@@ -215,21 +247,18 @@ def command_quiz_bloque(m):
     opcion_d = ''
     resp_correcta = ''
     nombre_bloque = ''
-    if msg:  
-        if msg.lower() == 'b1':  
-            bloque = 'b1'
+    bloque = bloque_elegido
+    if bloque:  
+        if bloque == 'b1':  
             nombre_bloque = 'bloque 1'
-        elif msg.lower() == 'b2':  
-            bloque = 'b2'
+        elif bloque == 'b2':  
             nombre_bloque = 'bloque 2'
-        elif msg.lower() == 'b3':  
-            bloque = 'b3'
+        elif bloque == 'b3':  
             nombre_bloque = 'bloque 3'
-        elif msg.lower() == 'b4':  
-            bloque = 'b4'
+        elif bloque == 'b4':  
             nombre_bloque = 'bloque 4'
 
-    with open('preguntas.txt', 'r') as f:  
+    with open(QUEST_FILENAME, 'r') as f:  
         preguntas = f.read().strip().splitlines()[1:]
         if bloque:
             preguntas2 = []  
@@ -251,16 +280,18 @@ def command_quiz_bloque(m):
                 opcion_d = fila.split(';')[6]  
                 resp_correcta = fila.split(';')[7]
  
-            texto = "* %s)* %s \n %s \n %s \n %s \n %s" % (bloque.upper(), enunciado, opcion_a, opcion_b, opcion_c, opcion_d)
+            texto = "* %s)* %s \n %s \n %s \n %s \n %s \n\n De *%s*" % (bloque.upper(), enunciado, opcion_a, opcion_b, opcion_c, opcion_d, autor)
             set_enunciado(enunciado)
             set_correct_answer(resp_correcta)
             bot.send_message(chatId, texto, parse_mode= 'Markdown', reply_markup=gen_markup())
             bot.send_message(chatId, "Para saber la respuesta correcta puedes escribir el comando /answers.")  
-            bot.send_message(chatId, "Para saber tu puntuación puedes escribir el comando /score.")  
-            bot.send_message(chatId, "Para que el bot te haga otra pregunta del *"+nombre_bloque+"* puedes escribir el *"+bloque+"*.", parse_mode= 'Markdown') 
+            bot.send_message(chatId, "Para saber tu puntuación puedes escribir el comando /score.")
+            bot.send_message(chatId, "Para que el bot te haga otra pregunta del *"+nombre_bloque+"* puedes escribir el /"+bloque+".", parse_mode= 'Markdown') 
+
 
 @bot.message_handler(commands=['answers'])
 def command_answers(m):
+    log_command(m)
     global answer_user
     resp = get_user_answer()
     set_user_answer(None)
@@ -271,7 +302,8 @@ def command_answers(m):
 
 # handle the "/score" command 
 @bot.message_handler(commands=['score']) 
-def command_score(m):  
+def command_score(m): 
+    log_command(m) 
     global score
     global answer_user
     answer_user = ''
@@ -284,6 +316,7 @@ def command_score(m):
 # handle the "/score" command 
 @bot.message_handler(commands=['stop']) 
 def command_stop(m):
+    log_command(m)
     global correctAnswers
     global wrongAnswers
     global score
@@ -297,6 +330,7 @@ def command_stop(m):
         score = []
         set_user_answer(None)
         bot.send_message(m.chat.id, "Para empezar hacer el test puedes escribir el comando /quiz.")
+        bot.send_message(m.chat.id, "Para realizar el test de algún puedes escribir el comando /b1 o /b2 o /b3 o /b4.")
     else:
         bot.send_message(m.chat.id, "No hay puntuación, ya que no has respondido al test.\nPara empezar hacer el test puedes escribir el comando /quiz y después hacer clic en alguna de las opciones correspondientes.")
 
@@ -330,7 +364,25 @@ def callback_query(call):
         answer_user = ''
         bot.answer_callback_query(call.id, None)
 
-
+# handle the "/wiki" command
+# filter on a specific message
+@bot.message_handler(commands=['wiki'])
+@bot.message_handler(func=lambda message: True, content_types=['text'])
+def command_wiki(m):
+    log_command(m)
+    msg     = m.text
+    repy = ''
+    params = msg.split(' ')[1:]
+    if params:
+        lang = 'es'
+        paramlang = params[0].lower().split(':')[0]
+        search = '_'.join(params)
+        search = search.lstrip('%s:' % paramlang)
+        if paramlang in ['en', 'fr', 'de', 'pt']:
+            lang = paramlang
+        reply = "https://%s.wikipedia.org/wiki/%s" % (lang, search)
+        bot.send_message(m.chat.id, reply, parse_mode='HTML')
+        #bot.replay_to(reply, parse_mode='HTML')
 
 # default handler for every other text 
 @bot.message_handler(func=lambda message: True, content_types=['text']) 
